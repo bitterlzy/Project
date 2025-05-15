@@ -51,3 +51,8 @@ time_t CGlobalFunc::getCurrentTimeInSeconds()
 {
     return time(nullptr);
 }
+
+size_t CGlobalFunc::getCPUCoreCount()
+{
+    return std::thread::hardware_concurrency();
+}

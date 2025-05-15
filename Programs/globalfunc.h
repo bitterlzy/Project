@@ -8,6 +8,7 @@
 #include <string.h>
 #include <mutex>
 #include <unistd.h>
+#include <thread>
 
 namespace CGlobalFunc
 {
@@ -17,6 +18,7 @@ namespace CGlobalFunc
     std::string getTimeBySeconds(time_t seconds); 
     time_t getSecondsByTime(const std::string& time); 
     time_t getCurrentTimeInSeconds(); 
+    size_t getCPUCoreCount();
 };
 
 

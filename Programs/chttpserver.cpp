@@ -5,6 +5,8 @@
 
 CHttpServer::CHttpServer(int port, int timeout) : m_port(port), m_timeout(timeout), m_exit(false)
 {
+    m_EventHandler = std::make_shared<CEventHandler>();
+    m_EventHandler->init();
     // 创建监听socket
     m_listen_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (m_listen_fd < 0) {
@@ -95,17 +97,108 @@ void CHttpServer::handle_read(int fd)
 
     received_data.assign(buffer, n);
     std::cout << "\nReceived data: \n" << received_data << std::endl;
-    // 这里应该添加HTTP请求解析逻辑
 
+    // 解析HTTP请求头
+    std::istringstream request_stream(received_data);
+    std::string request_line;
+    std::getline(request_stream, request_line);
     
-    // 简单起见，这里直接返回一个基本的HTTP响应
-    const char* response = "HTTP/1.1 200 OK\r\n"
-                          "Content-Type: text/html\r\n"
+    // 解析请求方法、路径和HTTP版本
+    std::string method, path, version;
+    std::istringstream request_line_stream(request_line);
+    request_line_stream >> method >> path >> version;
+
+    // 读取请求头
+    std::map<std::string, std::string> headers;
+    std::string header_line;
+    while (std::getline(request_stream, header_line) && header_line != "\r") {
+        size_t colon_pos = header_line.find(':');
+        if (colon_pos != std::string::npos) {
+            std::string key = header_line.substr(0, colon_pos);
+            std::string value = header_line.substr(colon_pos + 2); // 跳过": "
+            if (!value.empty() && value.back() == '\r') {
+                value.pop_back();
+            }
+            headers[key] = value;
+        }
+    }
+
+    // 读取请求体（JSON数据）
+    std::string body;
+    std::string line;
+    while (std::getline(request_stream, line)) {
+        body += line + "\n";
+    }
+
+    // 解析JSON数据
+    Json::Value json_data;
+    Json::CharReaderBuilder reader;
+    Json::String errs;
+    std::istringstream body_stream(body);
+    try {
+        if (!body.empty()) {
+            bool parse_success = Json::parseFromStream(reader, body_stream, &json_data, &errs);
+            if (!parse_success) {
+                std::cerr << "JSON解析错误: " << errs << std::endl;
+                const char* error_response = "HTTP/1.1 400 Bad Request\r\n"
+                                           "Content-Type: application/json\r\n"
+                                           "Connection: close\r\n"
+                                           "\r\n"
+                                           "{\"error\": \"Invalid JSON format\"}";
+                write(fd, error_response, strlen(error_response));
+                remove_fd(fd);
+                return;
+            }
+            std::cout << "解析的JSON数据: " << json_data.toStyledString() << std::endl;
+            
+            // 读取method字段
+            if (json_data.isMember("method")) {
+                std::string method_value = json_data["method"].asString();
+                std::cout << "接收到的method: " << method_value << std::endl;
+                
+                // 根据method字段处理不同的请求
+                if (method_value == "test_service") {
+                    // 调用事件处理器中的test_service事件
+                    if (m_EventHandler) {
+                        // 假设m_EventHandler有一个执行事件的方法
+                        m_EventHandler->dispatchEvent("test_service");
+                    }
+                }
+                // 可以添加更多method的处理逻辑
+            } else {
+                std::cout << "JSON数据中没有method字段" << std::endl;
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "JSON解析异常: " << e.what() << std::endl;
+        const char* error_response = "HTTP/1.1 400 Bad Request\r\n"
+                                   "Content-Type: application/json\r\n"
+                                   "Connection: close\r\n"
+                                   "\r\n"
+                                   "{\"error\": \"Invalid JSON format\"}";
+        write(fd, error_response, strlen(error_response));
+        remove_fd(fd);
+        return;
+    }
+
+    // 构建JSON响应
+    Json::Value response_json;
+    response_json["status"] = "success";
+    response_json["message"] = "Request processed successfully";
+    response_json["received_data"] = json_data;
+
+    // 发送JSON响应
+    Json::StreamWriterBuilder writer;
+    writer["indentation"] = "";  // 不需要缩进
+    std::string response_body = Json::writeString(writer, response_json);
+    std::string response = "HTTP/1.1 200 OK\r\n"
+                          "Content-Type: application/json\r\n"
+                          "Content-Length: " + std::to_string(response_body.length()) + "\r\n"
                           "Connection: close\r\n"
-                          "\r\n"
-                          "<html><body><h1>Hello, World!</h1></body></html>";
+                          "\r\n" +
+                          response_body;
     
-    write(fd, response, strlen(response));
+    write(fd, response.c_str(), response.length());
     remove_fd(fd);
 }
 

@@ -22,6 +22,7 @@ else()
     add_definitions(-DSVN_VERSION="${SVN_VERSION}")
 endif()
 
+
 # 根据编译器路径执行不同的配置
 if(ARCH STREQUAL "aarch64_3568")
     # 获取编译器的绝对路径
@@ -88,6 +89,6 @@ elseif(ARCH STREQUAL "x86_64")
     target_link_libraries(${PROJECT_NAME} PRIVATE rt dl pthread)
     
 else()
-    target_link_libraries(${PROJECT_NAME} PRIVATE rt dl pthread uuid mysqlclient)
+    target_link_libraries(${PROJECT_NAME} PRIVATE rt dl pthread uuid mysqlclient jsoncpp)
 endif()
 

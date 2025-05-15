@@ -9,20 +9,14 @@
 #include <mutex>
 #include <unistd.h>
 
-class CGlobalFunc
+namespace CGlobalFunc
 {
-public:
-    static CGlobalFunc* GetInstance();
-    std::string GetCurrentTime(); 
-    std::string GetTimeBySeconds(time_t seconds); 
-    time_t GetSecondsByTime(const std::string& time); 
-    time_t GetCurrentTimeInSeconds(); 
-
-private:
-    CGlobalFunc() = default;
-    ~CGlobalFunc() = default;
-    CGlobalFunc(const CGlobalFunc&) = delete;
-    CGlobalFunc& operator=(const CGlobalFunc&) = delete;
+    void sleepForSeconds(int seconds);
+    void sleepForMilliseconds(int milliseconds);
+    std::string getCurrentTime(); 
+    std::string getTimeBySeconds(time_t seconds); 
+    time_t getSecondsByTime(const std::string& time); 
+    time_t getCurrentTimeInSeconds(); 
 };
 
 

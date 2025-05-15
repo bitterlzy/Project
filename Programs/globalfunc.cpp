@@ -3,20 +3,14 @@
 #include <iomanip>
 #include <ctime>
 
-CGlobalFunc* CGlobalFunc::GetInstance()
-{
-    static CGlobalFunc instance;
-    return &instance;
-}
-
 // 获取当前时间(格式: 2025-03-07 10:00:00)
-std::string CGlobalFunc::GetCurrentTime() 
+std::string CGlobalFunc::getCurrentTime() 
 {
-    return GetTimeBySeconds(time(nullptr));
+    return CGlobalFunc::getTimeBySeconds(time(nullptr));
 }
 
 // 将时间戳转换为字符串格式(格式: 2025-03-07 10:00:00)
-std::string CGlobalFunc::GetTimeBySeconds(time_t seconds) 
+std::string CGlobalFunc::getTimeBySeconds(time_t seconds) 
 {
     struct tm tm;
     #ifdef _WIN32
@@ -36,7 +30,7 @@ std::string CGlobalFunc::GetTimeBySeconds(time_t seconds)
 }
 
 // 将字符串格式时间转换为时间戳(格式: 1715136000)
-time_t CGlobalFunc::GetSecondsByTime(const std::string& time) 
+time_t CGlobalFunc::getSecondsByTime(const std::string& time) 
 {
     struct tm tm = {};
     std::istringstream ss(time);
@@ -53,7 +47,7 @@ time_t CGlobalFunc::GetSecondsByTime(const std::string& time)
 }
 
 // 获取当前时间戳(格式: 1715136000)
-time_t CGlobalFunc::GetCurrentTimeInSeconds() 
+time_t CGlobalFunc::getCurrentTimeInSeconds() 
 {
     return time(nullptr);
 }

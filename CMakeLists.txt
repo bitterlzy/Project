@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 2.8)
 #定义项目名称
 project(Programs_Mine)
-
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 #设置C++标准
 if(NOT ARCH STREQUAL "arm")
     set(CMAKE_CXX_STANDARD 11)
@@ -34,6 +34,7 @@ add_definitions(-DARCH="${ARCH}")
 include_directories(
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/Programs
+    ${CMAKE_SOURCE_DIR}/Managers
 )
 file(GLOB_RECURSE ALL_FILES RELATIVE 
     ${CMAKE_SOURCE_DIR}
@@ -41,15 +42,24 @@ file(GLOB_RECURSE ALL_FILES RELATIVE
     ${CMAKE_SOURCE_DIR}/Programs/*.hpp
     ${CMAKE_SOURCE_DIR}/Programs/*.c
     ${CMAKE_SOURCE_DIR}/Programs/*.cpp
+    ${CMAKE_SOURCE_DIR}/Managers/*.h
+    ${CMAKE_SOURCE_DIR}/Managers/*.hpp
+    ${CMAKE_SOURCE_DIR}/Managers/*.c
+    ${CMAKE_SOURCE_DIR}/Managers/*.cpp
+    ${CMAKE_SOURCE_DIR}/Programs/cproject.h
+    ${CMAKE_SOURCE_DIR}/Programs/cproject.cpp
 
     ${CMAKE_SOURCE_DIR}/main.cpp
 )
 
-set( ALL_FILES
-    ${CMAKE_SOURCE_DIR}/main.cpp
-    ${CMAKE_SOURCE_DIR}/Programs/globalfunc.h
-    ${CMAKE_SOURCE_DIR}/Programs/globalfunc.cpp
-)
+# set( ALL_FILES
+#     ${CMAKE_SOURCE_DIR}/main.cpp
+#     ${CMAKE_SOURCE_DIR}/Programs/globalfunc.h
+#     ${CMAKE_SOURCE_DIR}/Programs/globalfunc.cpp
+#     ${CMAKE_SOURCE_DIR}/Programs/chttpserver.h
+#     ${CMAKE_SOURCE_DIR}/Programs/chttpserver.cpp
+
+# )
 
 
 message(STATUS "CMAKE_SORCE_DIR: ${CMAKE_SOURCE_DIR}")
@@ -78,6 +88,6 @@ elseif(ARCH STREQUAL "x86_64")
     target_link_libraries(${PROJECT_NAME} PRIVATE rt dl pthread)
     
 else()
-    target_link_libraries(${PROJECT_NAME} PRIVATE rt dl pthread uuid)
+    target_link_libraries(${PROJECT_NAME} PRIVATE rt dl pthread uuid mysqlclient)
 endif()
 

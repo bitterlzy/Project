@@ -10,7 +10,7 @@ CThreadPool::CThreadPool(int threadNum) : m_stop(false)
 
 CThreadPool::~CThreadPool()
 {
-    Stop();
+    stop();
 }
 
 void CThreadPool::addTask(std::function<void()> task)
@@ -28,7 +28,7 @@ void CThreadPool::addTask(std::function<void()> task)
     m_condition.notify_one();
 }
 
-void CThreadPool::Stop()
+void CThreadPool::stop()
 {
     {
         std::unique_lock<std::mutex> lock(m_mutex);

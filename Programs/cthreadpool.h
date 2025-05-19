@@ -20,7 +20,7 @@ public:
     void addTask(std::function<void()> task);
     
     // 停止所有线程
-    void Stop();
+    void stop();
     
     // 获取当前等待中的任务数
     size_t getPendingTaskCount();

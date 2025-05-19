@@ -7,6 +7,7 @@ CHttpServer::CHttpServer(int port, int timeout) : m_port(port), m_timeout(timeou
 {
     m_EventHandler = std::make_shared<CEventHandler>();
     m_EventHandler->init();
+    m_ThreadPool = std::make_shared<CThreadPool>(std::thread::hardware_concurrency());
     // 创建监听socket
     m_listen_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (m_listen_fd < 0) {
@@ -44,6 +45,8 @@ CHttpServer::~CHttpServer()
     close(m_listen_fd);
     close(m_epoll_fd);
     m_ThreadListen.join();
+    m_ThreadKeepAlive.join();
+    m_ThreadPool->stop();
 }
 
 void CHttpServer::start()
@@ -86,15 +89,16 @@ void CHttpServer::handle_accept()
 
 void CHttpServer::handle_read(int fd)
 {
+    std::string responce;
     char buffer[MAX_BUFFER];
     int n = read(fd, buffer, MAX_BUFFER);
     std::string received_data;
     
     if (n <= 0) {
-        remove_fd(fd);
+        // remove_fd(fd);
         return;
     }
-
+    m_client_timeout[fd] = m_timeout;
     received_data.assign(buffer, n);
     std::cout << "\nReceived data: \n" << received_data << std::endl;
 
@@ -145,29 +149,16 @@ void CHttpServer::handle_read(int fd)
                                            "Connection: close\r\n"
                                            "\r\n"
                                            "{\"error\": \"Invalid JSON format\"}";
-                write(fd, error_response, strlen(error_response));
+                ssize_t bytes_written = write(fd, error_response, strlen(error_response));
+                if (bytes_written < 0) {
+                    perror("写入响应失败");
+                }
                 remove_fd(fd);
                 return;
             }
             std::cout << "解析的JSON数据: " << json_data.toStyledString() << std::endl;
-            
-            // 读取method字段
-            if (json_data.isMember("method")) {
-                std::string method_value = json_data["method"].asString();
-                std::cout << "接收到的method: " << method_value << std::endl;
-                
-                // 根据method字段处理不同的请求
-                if (method_value == "test_service") {
-                    // 调用事件处理器中的test_service事件
-                    if (m_EventHandler) {
-                        // 假设m_EventHandler有一个执行事件的方法
-                        m_EventHandler->dispatchEvent("test_service");
-                    }
-                }
-                // 可以添加更多method的处理逻辑
-            } else {
-                std::cout << "JSON数据中没有method字段" << std::endl;
-            }
+
+            responce = m_EventHandler->handleEvent(json_data.toStyledString());// 传输json_data的std::string格式
         }
     } catch (const std::exception& e) {
         std::cerr << "JSON解析异常: " << e.what() << std::endl;
@@ -185,26 +176,27 @@ void CHttpServer::handle_read(int fd)
     Json::Value response_json;
     response_json["status"] = "success";
     response_json["message"] = "Request processed successfully";
-    response_json["received_data"] = json_data;
+    response_json["responce"] = responce;
 
     // 发送JSON响应
     Json::StreamWriterBuilder writer;
     writer["indentation"] = "";  // 不需要缩进
     std::string response_body = Json::writeString(writer, response_json);
-    std::string response = "HTTP/1.1 200 OK\r\n"
+    std::string response_ = "HTTP/1.1 200 OK\r\n"
                           "Content-Type: application/json\r\n"
                           "Content-Length: " + std::to_string(response_body.length()) + "\r\n"
                           "Connection: close\r\n"
                           "\r\n" +
                           response_body;
-    
-    write(fd, response.c_str(), response.length());
-    remove_fd(fd);
+    std::cout << "响应: \n" << response_ << std::endl;
+    write(fd, response_.c_str(), response_.length());
+    // remove_fd(fd);
 }
 
 void CHttpServer::handle_write(int fd)
 {
     // 实现写事件处理逻辑
+    m_client_timeout[fd] = m_timeout;
 }
 
 void CHttpServer::add_fd(int fd)
@@ -234,14 +226,18 @@ void CHttpServer::keep_alive()
 {
     while (!m_exit)
     {
+        // 使用安全的迭代方式
         for (auto it = m_client_timeout.begin(); it != m_client_timeout.end();)
         {
             if (it->second <= 0)
             {
                 int fd = it->first;
+                std::cout << "客户端超时: " << m_clients[fd] << std::endl;
                 remove_fd(fd);
-                m_clients.erase(fd);
-                it = m_client_timeout.erase(it);
+                it = m_client_timeout.begin();
+                if (m_client_timeout.empty()) {
+                    break;
+                }
             }
             else
             {
@@ -279,17 +275,21 @@ void CHttpServer::listen_()
                 uint32_t events = m_events[i].events;
                 
                 if (fd == m_listen_fd) {
-                    handle_accept();
+                    auto func = std::bind([this](){this->handle_accept();});
+                    m_ThreadPool->addTask(func);
                 } else {
                     if (events & EPOLLIN) {
-                        handle_read(fd);
+                        auto func = std::bind([this](int fd){this->handle_read(fd);}, fd);
+                        m_ThreadPool->addTask(func);
                     }
                     if (events & EPOLLOUT) {
-                        handle_write(fd);
+                        auto func = std::bind([this](int fd){this->handle_write(fd);}, fd);
+                        m_ThreadPool->addTask(func);
                     }
                     if (events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
                         // 处理连接关闭、挂起或错误
-                        remove_fd(fd);
+                        auto func = std::bind([this](int fd){this->remove_fd(fd);}, fd);
+                        m_ThreadPool->addTask(func);
                     }
                 }
             }

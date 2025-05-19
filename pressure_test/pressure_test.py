@@ -5,7 +5,7 @@ class APILoadTestUser(HttpUser):
     wait_time = between(1, 3)
     
     # 测试服务器地址
-    host = "http://172.23.170.100:8080"
+    host = "http://172.29.116.225:8080"
     
     @task(3)  # 权重为3，表示执行频率是其他任务的3倍
     def get_index(self):

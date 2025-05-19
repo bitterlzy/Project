@@ -42,7 +42,9 @@ private:
     void set_nonblocking(int fd);   // 设置非阻塞
     std::map<int, std::string> m_clients;
     std::map<int, int> m_client_timeout;
+    std::mutex m_mutex;             // 添加互斥锁保护共享资源
     
+    std::shared_ptr<CThreadPool> m_ThreadPool;
     std::thread m_ThreadKeepAlive;
     std::thread m_ThreadListen;
     std::shared_ptr<CEventHandler> m_EventHandler;
